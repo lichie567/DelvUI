@@ -1,7 +1,7 @@
-﻿using Dalamud.Game.Internal;
-using ImGuiNET;
+﻿using ImGuiNET;
 using System;
 using System.Linq;
+using Dalamud.Game;
 
 namespace DelvUI.Helpers
 {
@@ -15,14 +15,14 @@ namespace DelvUI.Helpers
 
         public MPTickHelper()
         {
-            Plugin.GetPluginInterface().Framework.OnUpdateEvent += FrameworkOnOnUpdateEvent;
+            Plugin.Framework.Update += FrameworkOnOnUpdateEvent;
         }
 
         public double LastTick => LastTickTime;
 
         private void FrameworkOnOnUpdateEvent(Framework framework)
         {
-            var player = Plugin.GetPluginInterface().ClientState.LocalPlayer;
+            var player = Plugin.ClientState.LocalPlayer;
             if (player is null)
             {
                 return;
@@ -39,7 +39,7 @@ namespace DelvUI.Helpers
             var mp = player.CurrentMp;
 
             // account for lucid dreaming screwing up mp calculations
-            var lucidDreamingActive = player.StatusEffects.Any(e => e.EffectId == 1204);
+            var lucidDreamingActive = player.StatusList.Any(e => e.StatusId == 1204);
 
             if (!lucidDreamingActive && _lastMpValue < mp)
             {
@@ -50,7 +50,7 @@ namespace DelvUI.Helpers
                 LastTickTime += ServerTickRate;
             }
 
-            _lastMpValue = mp;
+            _lastMpValue = (int)mp;
         }
 
         protected virtual void Dispose(bool disposing)
@@ -60,7 +60,7 @@ namespace DelvUI.Helpers
                 return;
             }
 
-            Plugin.GetPluginInterface().Framework.OnUpdateEvent -= FrameworkOnOnUpdateEvent;
+            Plugin.Framework.Update -= FrameworkOnOnUpdateEvent;
         }
 
         public void Dispose()

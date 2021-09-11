@@ -1,5 +1,4 @@
-﻿using Dalamud.Game.ClientState.Structs.JobGauge;
-using DelvUI.Config;
+﻿using DelvUI.Config;
 using DelvUI.Config.Attributes;
 using DelvUI.Helpers;
 using DelvUI.Interface.Bars;
@@ -8,8 +7,10 @@ using ImGuiNET;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Numerics;
+using Dalamud.Game.ClientState.JobGauge.Types;
 
 namespace DelvUI.Interface.Jobs
 {
@@ -41,11 +42,11 @@ namespace DelvUI.Interface.Jobs
             Vector2 position = origin + Config.Position + Config.PowderGaugeBarPosition - Config.PowderGaugeBarSize / 2f;
             var builder = BarBuilder.Create(position, Config.PowderGaugeBarSize);
 
-            var gauge = PluginInterface.ClientState.JobGauges.Get<GNBGauge>();
+            var gauge = Plugin.JobGauges.Get<GNBGauge>();
 
             builder.SetChunks(2)
                    .SetChunkPadding(Config.PowderGaugeSpacing)
-                   .AddInnerBar(gauge.NumAmmo, 2, Config.PowderGaugeFillColor.Map, null)
+                   .AddInnerBar(gauge.Ammo, 2, Config.PowderGaugeFillColor.Map, null)
                    .SetBackgroundColor(EmptyColor["background"]);
 
             var drawList = ImGui.GetWindowDrawList();
@@ -55,15 +56,16 @@ namespace DelvUI.Interface.Jobs
 
         private void DrawNoMercyBar(Vector2 origin)
         {
+            Debug.Assert(Plugin.ClientState.LocalPlayer != null, "Plugin.ClientState.LocalPlayer != null");
             Vector2 position = origin + Config.Position + Config.NoMercyBarPosition - Config.NoMercyBarSize / 2f;
-            var noMercyBuff = PluginInterface.ClientState.LocalPlayer.StatusEffects.Where(o => o.EffectId == 1831);
+            var noMercyBuff = Plugin.ClientState.LocalPlayer.StatusList.Where(o => o.StatusId == 1831);
 
             var builder = BarBuilder.Create(position, Config.NoMercyBarSize)
                 .SetBackgroundColor(EmptyColor["background"]);
 
             if (noMercyBuff.Any())
             {
-                var duration = noMercyBuff.First().Duration;
+                var duration = noMercyBuff.First().RemainingTime;
 
                 builder.AddInnerBar(duration, 20, Config.NoMercyFillColor.Map, null)
                        .SetTextMode(BarTextMode.EachChunk)

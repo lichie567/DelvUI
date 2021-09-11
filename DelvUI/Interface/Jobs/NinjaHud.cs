@@ -1,6 +1,4 @@
-﻿using Dalamud.Game.ClientState.Actors.Types;
-using Dalamud.Game.ClientState.Structs;
-using Dalamud.Game.ClientState.Structs.JobGauge;
+﻿using Dalamud.Game.ClientState.Structs;
 using DelvUI.Config;
 using DelvUI.Config.Attributes;
 using DelvUI.Helpers;
@@ -10,9 +8,12 @@ using ImGuiNET;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Numerics;
-using Actor = Dalamud.Game.ClientState.Actors.Types.Actor;
+using Dalamud.Game.ClientState.JobGauge.Types;
+using Dalamud.Game.ClientState.Objects.Types;
+using Dalamud.Game.ClientState.Statuses;
 
 namespace DelvUI.Interface.Jobs
 {
@@ -55,6 +56,8 @@ namespace DelvUI.Interface.Jobs
 
         private void DrawMudraBars(Vector2 origin)
         {
+            Debug.Assert(Plugin.ClientState.LocalPlayer != null, "Plugin.ClientState.LocalPlayer != null");
+
             float xPos = origin.X + Config.Position.X + Config.MudraBarPosition.X - Config.MudraBarSize.X / 2f;
             float yPos = origin.Y + Config.Position.Y + Config.MudraBarPosition.Y - Config.MudraBarSize.Y / 2f;
 
@@ -67,9 +70,9 @@ namespace DelvUI.Interface.Jobs
             int mudraStacks = _spellHelper.GetStackCount(2, 2259);
 
             // is the player casting ninjutsu or under kassatsu?
-            IEnumerable<StatusEffect> ninjutsuBuff = PluginInterface.ClientState.LocalPlayer.StatusEffects.Where(o => o.EffectId == 496);
-            IEnumerable<StatusEffect> kassatsuBuff = PluginInterface.ClientState.LocalPlayer.StatusEffects.Where(o => o.EffectId == 497);
-            IEnumerable<StatusEffect> tcjBuff = PluginInterface.ClientState.LocalPlayer.StatusEffects.Where(o => o.EffectId == 1186);
+            IEnumerable<Status> ninjutsuBuff = Plugin.ClientState.LocalPlayer.StatusList.Where(o => o.StatusId == 496);
+            IEnumerable<Status> kassatsuBuff = Plugin.ClientState.LocalPlayer.StatusList.Where(o => o.StatusId == 497);
+            IEnumerable<Status> tcjBuff = Plugin.ClientState.LocalPlayer.StatusList.Where(o => o.StatusId == 1186);
             bool haveMudraBuff = ninjutsuBuff.Any();
             bool haveKassatsuBuff = kassatsuBuff.Any();
             bool haveTCJBuff = tcjBuff.Any();
@@ -154,8 +157,8 @@ namespace DelvUI.Interface.Jobs
 
         private void DrawHutonGauge(Vector2 origin)
         {
-            NINGauge gauge = PluginInterface.ClientState.JobGauges.Get<NINGauge>();
-            int hutonDurationLeft = (int)Math.Ceiling((float)(gauge.HutonTimeLeft / (double)1000));
+            NINGauge gauge = Plugin.JobGauges.Get<NINGauge>();
+            int hutonDurationLeft = (int)Math.Ceiling((float)(gauge.HutonTimer / (double)1000));
 
             float xPos = origin.X + Config.Position.X + Config.HutonGaugePosition.X - Config.HutonGaugeSize.X / 2f;
             float yPos = origin.Y + Config.Position.Y + Config.HutonGaugePosition.Y - Config.HutonGaugeSize.Y / 2f;
@@ -181,7 +184,7 @@ namespace DelvUI.Interface.Jobs
 
         private void DrawNinkiGauge(Vector2 origin)
         {
-            NINGauge gauge = PluginInterface.ClientState.JobGauges.Get<NINGauge>();
+            NINGauge gauge = Plugin.JobGauges.Get<NINGauge>();
 
             float xPos = origin.X + Config.Position.X + Config.NinkiGaugePosition.X - Config.NinkiGaugeSize.X / 2f;
             float yPos = origin.Y + Config.Position.Y + Config.NinkiGaugePosition.Y - Config.NinkiGaugeSize.Y / 2f;
@@ -220,16 +223,17 @@ namespace DelvUI.Interface.Jobs
             float xPos = origin.X + Config.Position.X + Config.TrickBarPosition.X - Config.TrickBarSize.X / 2f;
             float yPos = origin.Y + Config.Position.Y + Config.TrickBarPosition.Y - Config.TrickBarSize.Y / 2f;
 
-            Actor target = PluginInterface.ClientState.Targets.SoftTarget ?? PluginInterface.ClientState.Targets.CurrentTarget;
+            GameObject actor = Plugin.TargetManager.SoftTarget ?? Plugin.TargetManager.Target;
             float trickDuration = 0f;
             const float trickMaxDuration = 15f;
 
             BarBuilder builder = BarBuilder.Create(xPos, yPos, Config.TrickBarSize.Y, Config.TrickBarSize.X);
 
-            if (target is Chara)
+            if (actor is BattleChara target)
             {
-                StatusEffect trickStatus = target.StatusEffects.FirstOrDefault(o => o.EffectId == 638 && o.OwnerId == PluginInterface.ClientState.LocalPlayer.ActorId);
-                trickDuration = Math.Max(trickStatus.Duration, 0);
+                Debug.Assert(Plugin.ClientState.LocalPlayer != null, "Plugin.ClientState.LocalPlayer != null");
+                Status trickStatus = target.StatusList.FirstOrDefault(o => o.StatusId == 638 && o.SourceID == Plugin.ClientState.LocalPlayer.ObjectId);
+                trickDuration = Math.Max(trickStatus?.RemainingTime ?? 0f, 0);
             }
 
             if (trickDuration != 0)
@@ -242,11 +246,11 @@ namespace DelvUI.Interface.Jobs
                 }
             }
 
-            IEnumerable<StatusEffect> suitonBuff = PluginInterface.ClientState.LocalPlayer.StatusEffects.Where(o => o.EffectId == 507);
+            IEnumerable<Status> suitonBuff = Plugin.ClientState.LocalPlayer.StatusList.Where(o => o.StatusId == 507);
 
             if (suitonBuff.Any() && Config.ShowSuitonBar)
             {
-                float suitonDuration = Math.Abs(suitonBuff.First().Duration);
+                float suitonDuration = Math.Abs(suitonBuff.First().RemainingTime);
                 builder.AddInnerBar(suitonDuration, 20, Config.SuitonBarColor.Map);
 
                 if (Config.ShowSuitonBarText)

@@ -1,42 +1,84 @@
-﻿using Dalamud.Game.ClientState;
+﻿using System;
+using System.IO;
+using System.Reflection;
+using Dalamud.Data;
+using Dalamud.Game;
+using Dalamud.Game.ClientState;
+using Dalamud.Game.ClientState.Conditions;
+using Dalamud.Game.ClientState.JobGauge;
+using Dalamud.Game.ClientState.Objects;
 using Dalamud.Game.Command;
+using Dalamud.Game.Gui;
+using Dalamud.Interface;
+using Dalamud.Logging;
 using Dalamud.Plugin;
 using DelvUI.Config;
-using DelvUI.Helpers;
 using DelvUI.Interface;
+using DelvUI.Helpers;
 using DelvUI.Interface.GeneralElements;
 using FFXIVClientStructs;
 using ImGuiNET;
-using System;
-using System.IO;
-using System.Reflection;
+using SigScanner = Dalamud.Game.SigScanner;
 
 namespace DelvUI
 {
     public class Plugin : IDalamudPlugin
     {
-        private bool _fontBuilt;
-        private bool _fontLoadFailed;
-        private HudManager _hudManager;
-        private SystemMenuHook _menuHook;
+        public static ClientState ClientState { get; private set; }
+        public static CommandManager CommandManager { get; private set; }
+        public static Condition Condition { get; private set; }
+        public static DalamudPluginInterface PluginInterface { get; private set; }
+        public static DataManager DataManager { get; private set; }
+        public static Framework Framework { get; private set; }
+        public static GameGui GameGui { get; private set; }
+        public static JobGauges JobGauges { get; private set; }
+        public static ObjectTable ObjectTable { get; private set; }
+        public static SigScanner SigScanner { get; private set; }
+        public static TargetManager TargetManager { get; private set; }
+        public static UiBuilder UiBuilder { get; private set; }
 
-        private static DalamudPluginInterface _pluginInterface;
-
-        public static ImGuiScene.TextureWrap bannerTexture;
+        public static ImGuiScene.TextureWrap BannerTexture;
 
         // ReSharper disable once AutoPropertyCanBeMadeGetOnly.Global
         // ReSharper disable once MemberCanBePrivate.Global
         public string AssemblyLocation { get; set; } = Assembly.GetExecutingAssembly().Location;
         public string Name => "DelvUI";
-        public static string Version = "";
+        public static string Version { get; private set; } = "";
+        
+        private bool _fontBuilt;
+        private bool _fontLoadFailed;
+        private HudManager _hudManager;
+        private SystemMenuHook _menuHook;
 
-        public static DalamudPluginInterface GetPluginInterface() => _pluginInterface;
-
-        public void Initialize(DalamudPluginInterface pluginInterface)
+        public Plugin(
+            ClientState clientState,
+            CommandManager commandManager,
+            Condition condition,
+            DalamudPluginInterface pluginInterface,
+            DataManager dataManager,
+            Framework framework,
+            GameGui gameGui,
+            JobGauges jobGauges,
+            ObjectTable objectTable,
+            SigScanner sigScanner,
+            TargetManager targetManager,
+            UiBuilder uiBuilder
+        )
         {
-            _pluginInterface = pluginInterface;
+            ClientState = clientState;
+            CommandManager = commandManager;
+            Condition = condition;
+            PluginInterface = pluginInterface;
+            DataManager = dataManager;
+            Framework = framework;
+            GameGui = gameGui;
+            JobGauges = jobGauges;
+            ObjectTable = objectTable;
+            SigScanner = sigScanner;
+            TargetManager = targetManager;
+            UiBuilder = uiBuilder;
 
-            Version = Assembly.GetExecutingAssembly()?.GetName().Version.ToString() ?? "";
+            Version = Assembly.GetExecutingAssembly().GetName().Version?.ToString() ?? "";
 
             LoadBanner();
 
@@ -44,30 +86,25 @@ namespace DelvUI
             ConfigurationManager.Initialize(false);
             FontsManager.Initialize();
 
-            _pluginInterface.UiBuilder.OnBuildUi += Draw;
-            _pluginInterface.UiBuilder.OnBuildFonts += BuildFont;
-            _pluginInterface.UiBuilder.OnOpenConfigUi += OpenConfigUi;
+            PluginInterface.UiBuilder.Draw += Draw;
+            PluginInterface.UiBuilder.BuildFonts += BuildFont;
+            PluginInterface.UiBuilder.OpenConfigUi += OpenConfigUi;
 
             if (!_fontBuilt && !_fontLoadFailed)
             {
-                _pluginInterface.UiBuilder.RebuildFonts();
+                PluginInterface.UiBuilder.RebuildFonts();
             }
 
-            _pluginInterface.CommandManager.AddHandler(
+            CommandManager.AddHandler(
                 "/delvui",
                 new CommandInfo(PluginCommand)
                 {
-                    HelpMessage = "Opens the DelvUI configuration window.\n"
-                                + "/delvui toggle → Toggles HUD visibility.\n"
-                                + "/delvui show → Shows HUD.\n"
-                                + "/delvui hide → Hides HUD.",
+                    HelpMessage = "Opens the DelvUI configuration window.\n",
                     ShowInHelp = true
                 }
             );
 
-            _menuHook = new SystemMenuHook(_pluginInterface);
-
-            _pluginInterface.CommandManager.AddHandler("/delvuireloadconfig", new CommandInfo(ReloadConfigCommand));
+            _menuHook = new SystemMenuHook(PluginInterface);
 
             TexturesCache.Initialize();
             GlobalColors.Initialize();
@@ -117,7 +154,7 @@ namespace DelvUI
             {
                 try
                 {
-                    bannerTexture = _pluginInterface.UiBuilder.LoadImage(bannerImage);
+                    BannerTexture = PluginInterface.UiBuilder.LoadImage(bannerImage);
                 }
                 catch (Exception ex)
                 {
@@ -134,43 +171,20 @@ namespace DelvUI
         private void PluginCommand(string command, string arguments)
         {
             ConfigurationManager.GetInstance().DrawConfigWindow = !ConfigurationManager.GetInstance().DrawConfigWindow;
-
-            //switch (arguments)
-            //{
-            //    case "toggle":
-            //        _configurationWindow.ToggleHud();
-
-            //        break;
-
-            //    case "show":
-            //        _configurationWindow.ShowHud();
-
-            //        break;
-
-            //    case "hide":
-            //        _configurationWindow.HideHud();
-
-            //        break;
-
-            //    default:
-            //        ConfigurationManager.GetInstance().DrawConfigWindow = false;
-
-            //        break;
-            //}
         }
 
         private void ReloadConfigCommand(string command, string arguments) { ConfigurationManager.GetInstance().LoadConfigurations(); }
 
         private void Draw()
         {
-            bool hudState = _pluginInterface.ClientState.Condition[ConditionFlag.WatchingCutscene]
-                         || _pluginInterface.ClientState.Condition[ConditionFlag.WatchingCutscene78]
-                         || _pluginInterface.ClientState.Condition[ConditionFlag.OccupiedInCutSceneEvent]
-                         || _pluginInterface.ClientState.Condition[ConditionFlag.CreatingCharacter]
-                         || _pluginInterface.ClientState.Condition[ConditionFlag.BetweenAreas]
-                         || _pluginInterface.ClientState.Condition[ConditionFlag.BetweenAreas51];
+            bool hudState = Condition[ConditionFlag.WatchingCutscene]
+                         || Condition[ConditionFlag.WatchingCutscene78]
+                         || Condition[ConditionFlag.OccupiedInCutSceneEvent]
+                         || Condition[ConditionFlag.CreatingCharacter]
+                         || Condition[ConditionFlag.BetweenAreas]
+                         || Condition[ConditionFlag.BetweenAreas51];
 
-            _pluginInterface.UiBuilder.OverrideGameCursor = false;
+            PluginInterface.UiBuilder.OverrideGameCursor = false;
 
             ConfigurationManager.GetInstance().Draw();
 
@@ -190,7 +204,7 @@ namespace DelvUI
             }
         }
 
-        private void OpenConfigUi(object sender, EventArgs e)
+        private void OpenConfigUi()
         {
             ConfigurationManager.GetInstance().DrawConfigWindow = !ConfigurationManager.GetInstance().DrawConfigWindow;
         }
@@ -204,12 +218,11 @@ namespace DelvUI
 
             ConfigurationManager.GetInstance().DrawConfigWindow = false;
 
-            _pluginInterface.CommandManager.RemoveHandler("/delvui");
-            _pluginInterface.CommandManager.RemoveHandler("/delvuireloadconfig");
-            _pluginInterface.UiBuilder.OnBuildUi -= Draw;
-            _pluginInterface.UiBuilder.OnBuildFonts -= BuildFont;
-            _pluginInterface.UiBuilder.OnOpenConfigUi -= OpenConfigUi;
-            _pluginInterface.UiBuilder.RebuildFonts();
+            CommandManager.RemoveHandler("/delvui");
+            PluginInterface.UiBuilder.Draw -= Draw;
+            PluginInterface.UiBuilder.BuildFonts -= BuildFont;
+            PluginInterface.UiBuilder.OpenConfigUi -= OpenConfigUi;
+            PluginInterface.UiBuilder.RebuildFonts();
         }
     }
 }

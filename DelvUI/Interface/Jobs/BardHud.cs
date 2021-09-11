@@ -1,6 +1,4 @@
-﻿using Dalamud.Game.ClientState.Actors.Types;
-using Dalamud.Game.ClientState.Structs;
-using Dalamud.Game.ClientState.Structs.JobGauge;
+﻿using Dalamud.Game.ClientState.Structs;
 using DelvUI.Config;
 using DelvUI.Config.Attributes;
 using DelvUI.Helpers;
@@ -10,9 +8,13 @@ using ImGuiNET;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Numerics;
-using Actor = Dalamud.Game.ClientState.Actors.Types.Actor;
+using Dalamud.Game.ClientState.JobGauge.Enums;
+using Dalamud.Game.ClientState.JobGauge.Types;
+using Dalamud.Game.ClientState.Objects.Types;
+using Dalamud.Game.ClientState.Statuses;
 
 namespace DelvUI.Interface.Jobs
 {
@@ -45,9 +47,10 @@ namespace DelvUI.Interface.Jobs
 
         private void DrawActiveDots(Vector2 origin)
         {
-            Actor target = PluginInterface.ClientState.Targets.SoftTarget ?? PluginInterface.ClientState.Targets.CurrentTarget;
+            Debug.Assert(Plugin.ClientState.LocalPlayer != null, "Plugin.ClientState.LocalPlayer != null");
+            GameObject actor = Plugin.TargetManager.SoftTarget ?? Plugin.TargetManager.Target;
 
-            if (target is not Chara)
+            if (actor is not BattleChara target)
             {
                 return;
             }
@@ -59,12 +62,13 @@ namespace DelvUI.Interface.Jobs
 
             if (Config.ShowCB)
             {
-                StatusEffect cb = target.StatusEffects.FirstOrDefault(
-                    o => o.EffectId == 1200 && o.OwnerId == PluginInterface.ClientState.LocalPlayer.ActorId
-                      || o.EffectId == 124 && o.OwnerId == PluginInterface.ClientState.LocalPlayer.ActorId
+                
+                Status cb = target.StatusList.FirstOrDefault(
+                    o => o.StatusId == 1200 && o.SourceID == Plugin.ClientState.LocalPlayer.ObjectId
+                      || o.StatusId == 124 && o.SourceID == Plugin.ClientState.LocalPlayer.ObjectId
                 );
 
-                float duration = Math.Abs(cb.Duration);
+                float duration = Math.Abs(cb?.RemainingTime ?? 0f);
 
                 PluginConfigColor color = duration <= 5 ? Config.ExpireColor : Config.CBColor;
 
@@ -80,12 +84,12 @@ namespace DelvUI.Interface.Jobs
 
             if (Config.ShowSB)
             {
-                StatusEffect sb = target.StatusEffects.FirstOrDefault(
-                    o => o.EffectId == 1201 && o.OwnerId == PluginInterface.ClientState.LocalPlayer.ActorId
-                      || o.EffectId == 129 && o.OwnerId == PluginInterface.ClientState.LocalPlayer.ActorId
+                Status sb = target.StatusList.FirstOrDefault(
+                    o => o.StatusId == 1201 && o.SourceID == Plugin.ClientState.LocalPlayer.ObjectId
+                      || o.StatusId == 129 && o.SourceID == Plugin.ClientState.LocalPlayer.ObjectId
                 );
 
-                float duration = Math.Abs(sb.Duration);
+                float duration = Math.Abs(sb?.RemainingTime ?? 0f);
 
                 PluginConfigColor color = duration <= 5 ? Config.ExpireColor : Config.SBColor;
 
@@ -111,14 +115,14 @@ namespace DelvUI.Interface.Jobs
 
         private void HandleCurrentSong(Vector2 origin)
         {
-            BRDGauge gauge = PluginInterface.ClientState.JobGauges.Get<BRDGauge>();
-            byte songStacks = gauge.NumSongStacks;
-            CurrentSong song = gauge.ActiveSong;
+            BRDGauge gauge = Plugin.JobGauges.Get<BRDGauge>();
+            byte songStacks = gauge.Repertoire;
+            Song song = gauge.Song;
             short songTimer = gauge.SongTimer;
 
             switch (song)
             {
-                case CurrentSong.WANDERER:
+                case Song.WANDERER:
                     if (Config.ShowWMStacks)
                     {
                         DrawStacks(origin, songStacks, 3, Config.WMStackColor.Map);
@@ -128,7 +132,7 @@ namespace DelvUI.Interface.Jobs
 
                     break;
 
-                case CurrentSong.MAGE:
+                case Song.MAGE:
                     if (Config.ShowMBProc)
                     {
                         DrawBloodletterReady(origin, Config.MBProcColor.Map);
@@ -138,7 +142,7 @@ namespace DelvUI.Interface.Jobs
 
                     break;
 
-                case CurrentSong.ARMY:
+                case Song.ARMY:
                     if (Config.ShowAPStacks)
                     {
                         DrawStacks(origin, songStacks, 4, Config.APStackColor.Map);
@@ -148,7 +152,7 @@ namespace DelvUI.Interface.Jobs
 
                     break;
 
-                case CurrentSong.NONE:
+                case Song.NONE:
                     DrawSongTimer(origin, 0, EmptyColor);
 
                     break;
@@ -217,7 +221,7 @@ namespace DelvUI.Interface.Jobs
 
         private void DrawSoulVoiceBar(Vector2 origin)
         {
-            byte soulVoice = PluginInterface.ClientState.JobGauges.Get<BRDGauge>().SoulVoiceValue;
+            byte soulVoice = Plugin.JobGauges.Get<BRDGauge>().SoulVoice;
 
             Vector2 barSize = Config.SoulGaugeSize;
             Vector2 position = origin + Config.Position + Config.SoulGaugePosition - barSize / 2f;

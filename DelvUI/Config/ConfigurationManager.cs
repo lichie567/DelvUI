@@ -1,4 +1,3 @@
-using Dalamud.Plugin;
 using DelvUI.Config.Tree;
 using DelvUI.Interface.GeneralElements;
 using DelvUI.Interface.Jobs;
@@ -9,6 +8,7 @@ using System;
 using System.IO;
 using System.IO.Compression;
 using System.Text;
+using Dalamud.Logging;
 
 namespace DelvUI.Config
 {
@@ -112,10 +112,10 @@ namespace DelvUI.Config
                 method.Invoke(node, null);
             }
 
-            TextureWrap banner = Plugin.bannerTexture;
+            TextureWrap banner = Plugin.BannerTexture;
 
             var currentResetEvent = GetInstance()?.ResetEvent;
-            return new ConfigurationManager(defaultConfig, banner, Plugin.GetPluginInterface().GetPluginConfigDirectory(), node, currentResetEvent);
+            return new ConfigurationManager(defaultConfig, banner, Plugin.PluginInterface.GetPluginConfigDirectory(), node, currentResetEvent);
         }
 
         public static ConfigurationManager GetInstance() => _instance;

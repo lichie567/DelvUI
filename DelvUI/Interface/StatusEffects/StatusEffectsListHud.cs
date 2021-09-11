@@ -1,12 +1,12 @@
-﻿using Dalamud.Game.ClientState.Actors;
-using Dalamud.Game.ClientState.Structs;
-using DelvUI.Helpers;
-using ImGuiNET;
-using Lumina.Excel.GeneratedSheets;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Numerics;
-using Actor = Dalamud.Game.ClientState.Actors.Types.Actor;
+using Dalamud.Game.ClientState.Objects.Enums;
+using Dalamud.Game.ClientState.Objects.Types;
+using Dalamud.Game.ClientState.Statuses;
+using DelvUI.Helpers;
+using LuminaStatus = Lumina.Excel.GeneratedSheets.Status;
+using ImGuiNET;
 
 namespace DelvUI.Interface.StatusEffects
 {
@@ -18,7 +18,7 @@ namespace DelvUI.Interface.StatusEffects
         private uint _colCount;
         private GrowthDirections _lastGrowthDirections;
 
-        public Actor Actor { get; set; } = null;
+        public GameObject Actor { get; set; } = null;
 
         public StatusEffectsListHud(string ID, StatusEffectsListConfig config) : base(ID, config)
         {
@@ -51,18 +51,18 @@ namespace DelvUI.Interface.StatusEffects
         private List<StatusEffectData> StatusEffectsData(List<uint> filterBuffs)
         {
             var list = new List<StatusEffectData>();
-            if (Actor == null)
+            if (Actor == null || Actor is not BattleChara battleChara)
             {
                 return list;
             }
 
-            var effectCount = Actor.StatusEffects.Length;
+            var effectCount = battleChara.StatusList.Length;
             if (effectCount == 0)
             {
                 return list;
             }
 
-            var sheet = Plugin.GetPluginInterface().Data.GetExcelSheet<Status>();
+            var sheet = Plugin.DataManager.GetExcelSheet<LuminaStatus>();
             if (sheet == null)
             {
                 return list;
@@ -70,14 +70,14 @@ namespace DelvUI.Interface.StatusEffects
 
             for (var i = 0; i < effectCount; i++)
             {
-                var status = Actor.StatusEffects[i];
+                var status = battleChara.StatusList[i];
 
-                if (status.EffectId <= 0)
+                if (status is not { StatusId: > 0 })
                 {
                     continue;
                 }
 
-                var row = sheet.GetRow((uint)status.EffectId);
+                var row = sheet.GetRow(status.StatusId);
                 if (row == null)
                 {
                     continue;
@@ -110,7 +110,7 @@ namespace DelvUI.Interface.StatusEffects
             var toReturn = new List<StatusEffectData>();
             foreach (var buffId in filterBuffs)
             {
-                var idx = list.FindIndex(s => (uint)s.StatusEffect.EffectId == buffId);
+                var idx = list.FindIndex(s => s.Status.StatusId == buffId);
                 if (idx >= 0)
                 {
                     toReturn.Add(list[idx]);
@@ -270,12 +270,12 @@ namespace DelvUI.Interface.StatusEffects
 
     public struct StatusEffectData
     {
-        public StatusEffect StatusEffect;
-        public readonly Status Data;
+        public Status Status;
+        public LuminaStatus Data;
 
-        public StatusEffectData(StatusEffect statusEffect, Status data)
+        public StatusEffectData(Status status, LuminaStatus data)
         {
-            StatusEffect = statusEffect;
+            Status = status;
             Data = data;
         }
     }

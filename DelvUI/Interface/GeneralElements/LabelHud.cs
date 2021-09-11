@@ -1,7 +1,7 @@
-﻿using Dalamud.Game.ClientState.Actors.Types;
-using DelvUI.Helpers;
+﻿using DelvUI.Helpers;
 using ImGuiNET;
 using System.Numerics;
+using Dalamud.Game.ClientState.Objects.Types;
 
 namespace DelvUI.Interface.GeneralElements
 {
@@ -35,7 +35,7 @@ namespace DelvUI.Interface.GeneralElements
             }
         }
 
-        public void DrawWithActor(Vector2 origin, Actor actor)
+        public void DrawWithActor(Vector2 origin, GameObject actor)
         {
             if (!Config.Enabled || Config.GetText() == null)
             {

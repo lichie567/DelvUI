@@ -1,12 +1,12 @@
-﻿using Dalamud.Game.ClientState.Actors.Types;
-using DelvUI.Enums;
+﻿using DelvUI.Enums;
 using DelvUI.Helpers;
-using FFXIVClientStructs.FFXIV.Client.Game.Character;
 using ImGuiNET;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Numerics;
+using Dalamud.Game.ClientState.Objects.Types;
+using BattleChara = FFXIVClientStructs.FFXIV.Client.Game.Character.BattleChara;
 
 namespace DelvUI.Interface.GeneralElements
 {
@@ -18,7 +18,7 @@ namespace DelvUI.Interface.GeneralElements
 
         protected LastUsedCast _lastUsedCast = null;
 
-        public Actor Actor { get; set; } = null;
+        public GameObject Actor { get; set; } = null;
 
         public CastbarHud(string id, CastbarConfig config) : base(id, config)
         {
@@ -28,7 +28,7 @@ namespace DelvUI.Interface.GeneralElements
 
         public override unsafe void Draw(Vector2 origin)
         {
-            if (!Config.Enabled || Actor == null || Actor is not Chara)
+            if (!Config.Enabled || Actor == null || Actor is not Character)
             {
                 return;
             }
@@ -152,12 +152,12 @@ namespace DelvUI.Interface.GeneralElements
 
         public override Dictionary<string, uint> Color()
         {
-            if (!Config.UseJobColor || Actor is not Chara)
+            if (!Config.UseJobColor || Actor is not Character)
             {
                 return Config.Color.Map;
             }
 
-            var chara = (Chara)Actor;
+            var chara = (Character)Actor;
             var color = GlobalColors.Instance.ColorForJobId(chara.ClassJob.Id);
             return color != null ? color.Map : Config.Color.Map;
         }

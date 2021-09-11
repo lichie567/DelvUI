@@ -1,16 +1,16 @@
-﻿using Dalamud.Game.ClientState.Actors.Types;
-using Dalamud.Plugin;
+﻿using Dalamud.Plugin;
 using System.Numerics;
+using Dalamud.Game.ClientState.Objects.Types;
 
 namespace DelvUI.Interface.Jobs
 {
     public class JobHud : HudElement, IHudElementWithActor
     {
-        protected DalamudPluginInterface PluginInterface => Plugin.GetPluginInterface();
+        protected DalamudPluginInterface PluginInterface => Plugin.PluginInterface;
 
         public JobConfig Config => (JobConfig)_config;
 
-        public Actor Actor { get; set; } = null;
+        public GameObject Actor { get; set; } = null;
 
         public JobHud(string ID, JobConfig config) : base(ID, config)
         {

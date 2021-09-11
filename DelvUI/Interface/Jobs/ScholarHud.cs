@@ -1,7 +1,4 @@
-﻿using Dalamud.Game.ClientState.Actors.Types;
-using Dalamud.Game.ClientState.Structs;
-using Dalamud.Game.ClientState.Structs.JobGauge;
-using DelvUI.Config;
+﻿using DelvUI.Config;
 using DelvUI.Config.Attributes;
 using DelvUI.Helpers;
 using DelvUI.Interface.Bars;
@@ -10,9 +7,11 @@ using ImGuiNET;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Numerics;
-using Actor = Dalamud.Game.ClientState.Actors.Types.Actor;
+using Dalamud.Game.ClientState.JobGauge.Types;
+using Dalamud.Game.ClientState.Objects.Types;
 
 namespace DelvUI.Interface.Jobs
 {
@@ -46,7 +45,7 @@ namespace DelvUI.Interface.Jobs
 
         private void DrawFairyBar(Vector2 origin)
         {
-            float fairyGauge = PluginInterface.ClientState.JobGauges.Get<SCHGauge>().FairyGaugeAmount;
+            float fairyGauge = Plugin.JobGauges.Get<SCHGauge>().FairyGauge;
 
             Vector2 barSize = Config.FairySize;
             Vector2 position = origin + Config.Position + Config.FairyPosition - barSize / 2f;
@@ -67,7 +66,8 @@ namespace DelvUI.Interface.Jobs
 
         private void DrawAetherBar(Vector2 origin)
         {
-            StatusEffect aetherFlowBuff = PluginInterface.ClientState.LocalPlayer.StatusEffects.FirstOrDefault(o => o.EffectId == 304);
+            Debug.Assert(Plugin.ClientState.LocalPlayer != null, "Plugin.ClientState.LocalPlayer != null");
+            var aetherFlowBuff = Plugin.ClientState.LocalPlayer.StatusList.FirstOrDefault(o => o.StatusId == 304);
             Vector2 barSize = Config.AetherSize;
             Vector2 position = origin + Config.Position + Config.AetherPosition - barSize / 2f;
 
@@ -79,7 +79,7 @@ namespace DelvUI.Interface.Jobs
             Bar bar = BarBuilder.Create(position, barSize)
                                 .SetChunks(3)
                                 .SetChunkPadding(Config.AetherPadding)
-                                .AddInnerBar(aetherFlowBuff.StackCount, 3, Config.AetherColor.Map)
+                                .AddInnerBar(aetherFlowBuff?.StackCount ?? 0, 3, Config.AetherColor.Map)
                                 .SetBackgroundColor(EmptyColor["background"])
                                 .Build();
 
@@ -89,19 +89,20 @@ namespace DelvUI.Interface.Jobs
 
         private void DrawBioBar(Vector2 origin)
         {
-            Actor target = PluginInterface.ClientState.Targets.SoftTarget ?? PluginInterface.ClientState.Targets.CurrentTarget;
+            Debug.Assert(Plugin.ClientState.LocalPlayer != null, "Plugin.ClientState.LocalPlayer != null");
+            var actor = Plugin.TargetManager.SoftTarget ?? Plugin.TargetManager.Target;
 
             float bioDuration = 0;
 
-            if (target is Chara)
+            if (actor is BattleChara target)
             {
-                StatusEffect bio = target.StatusEffects.FirstOrDefault(
-                    o => o.EffectId == 179 && o.OwnerId == PluginInterface.ClientState.LocalPlayer.ActorId
-                      || o.EffectId == 189 && o.OwnerId == PluginInterface.ClientState.LocalPlayer.ActorId
-                      || o.EffectId == 1895 && o.OwnerId == PluginInterface.ClientState.LocalPlayer.ActorId
+                var bio = target.StatusList.FirstOrDefault(
+                    o => o.StatusId == 179 && o.SourceID == Plugin.ClientState.LocalPlayer.ObjectId
+                      || o.StatusId == 189 && o.SourceID == Plugin.ClientState.LocalPlayer.ObjectId
+                      || o.StatusId == 1895 && o.SourceID == Plugin.ClientState.LocalPlayer.ObjectId
                 );
 
-                bioDuration = Math.Abs(bio.Duration);
+                bioDuration = Math.Abs(bio?.RemainingTime ?? 0f);
             }
 
             PluginConfigColor bioColor = bioDuration > 5 ? Config.BioColor : Config.ExpireColor;

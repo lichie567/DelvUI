@@ -1,4 +1,3 @@
-using Dalamud.Game.ClientState.Structs.JobGauge;
 using DelvUI.Config;
 using DelvUI.Config.Attributes;
 using DelvUI.Helpers;
@@ -7,8 +6,12 @@ using DelvUI.Interface.GeneralElements;
 using ImGuiNET;
 using Newtonsoft.Json;
 using System;
+using System.Diagnostics;
 using System.Linq;
 using System.Numerics;
+using Dalamud.Game.ClientState.JobGauge.Types;
+using Dalamud.Game.ClientState.Objects.Types;
+using Dalamud.Game.ClientState.Statuses;
 
 namespace DelvUI.Interface.Jobs
 {
@@ -69,16 +72,17 @@ namespace DelvUI.Interface.Jobs
 
         private void DrawFormsBar(Vector2 origin)
         {
-            var target = PluginInterface.ClientState.LocalPlayer;
-            var opoOpoForm = target.StatusEffects.FirstOrDefault(o => o.EffectId == 107);
-            var raptorForm = target.StatusEffects.FirstOrDefault(o => o.EffectId == 108);
-            var coeurlForm = target.StatusEffects.FirstOrDefault(o => o.EffectId == 109);
-            var formlessFist = target.StatusEffects.FirstOrDefault(o => o.EffectId == 2513);
+            Debug.Assert(Plugin.ClientState.LocalPlayer != null, "Plugin.ClientState.LocalPlayer != null");
+            var target = Plugin.ClientState.LocalPlayer;
+            var opoOpoForm = target.StatusList.FirstOrDefault(o => o.StatusId == 107);
+            var raptorForm = target.StatusList.FirstOrDefault(o => o.StatusId == 108);
+            var coeurlForm = target.StatusList.FirstOrDefault(o => o.StatusId == 109);
+            var formlessFist = target.StatusList.FirstOrDefault(o => o.StatusId == 2513);
 
-            var opoOpoFormDuration = opoOpoForm.Duration;
-            var raptorFormDuration = raptorForm.Duration;
-            var coeurlFormDuration = coeurlForm.Duration;
-            var formlessFistDuration = formlessFist.Duration;
+            var opoOpoFormDuration = opoOpoForm.RemainingTime;
+            var raptorFormDuration = raptorForm.RemainingTime;
+            var coeurlFormDuration = coeurlForm.RemainingTime;
+            var formlessFistDuration = formlessFist.RemainingTime;
 
             var position = origin + Config.Position + Config.FormsBarPosition - Config.FormsBarSize / 2f;
 
@@ -121,9 +125,9 @@ namespace DelvUI.Interface.Jobs
                 bar.Draw(drawList);
             }
 
-            if (formlessFist.Duration > 0)
+            if (formlessFist.RemainingTime > 0)
             {
-                var bar = builder.AddInnerBar(Math.Abs(formlessFist.Duration), maximum, Config.FormsBarFillColor.Map)
+                var bar = builder.AddInnerBar(Math.Abs(formlessFist.RemainingTime), maximum, Config.FormsBarFillColor.Map)
                                  .SetTextMode(BarTextMode.EachChunk)
                                  .SetText(BarTextPosition.CenterMiddle, BarTextType.Custom, "Formless Fist")
                                  .SetBackgroundColor(EmptyColor.Background)
@@ -145,9 +149,9 @@ namespace DelvUI.Interface.Jobs
 
         private void DrawTrueNorthBar(Vector2 origin)
         {
-            var target = PluginInterface.ClientState.LocalPlayer;
-            var trueNorth = target.StatusEffects.FirstOrDefault(o => o.EffectId == 1250);
-            var trueNorthDuration = trueNorth.Duration;
+            var target = Plugin.ClientState.LocalPlayer;
+            var trueNorth = target.StatusList.FirstOrDefault(o => o.StatusId == 1250);
+            var trueNorthDuration = trueNorth.RemainingTime;
 
             var position = origin + Config.Position + Config.TrueNorthBarPosition - Config.TrueNorthBarSize / 2f;
             var builder = BarBuilder.Create(position, Config.TrueNorthBarSize);
@@ -177,8 +181,8 @@ namespace DelvUI.Interface.Jobs
 
         private void DrawPerfectBalanceBar(Vector2 origin)
         {
-            var target = PluginInterface.ClientState.LocalPlayer;
-            var perfectBalance = target.StatusEffects.FirstOrDefault(o => o.EffectId == 110);
+            var target = Plugin.ClientState.LocalPlayer;
+            var perfectBalance = target.StatusList.FirstOrDefault(o => o.StatusId == 110);
             var perfectBalanceDuration = perfectBalance.StackCount;
 
             var position = origin + Config.Position + Config.PerfectBalanceBarPosition - Config.PerfectBalanceBarSize / 2f;
@@ -211,8 +215,8 @@ namespace DelvUI.Interface.Jobs
 
         private void DrawRiddleOfEarthBar(Vector2 origin)
         {
-            var target = PluginInterface.ClientState.LocalPlayer;
-            var riddleOfEarth = target.StatusEffects.FirstOrDefault(o => o.EffectId == 1179);
+            var target = Plugin.ClientState.LocalPlayer;
+            var riddleOfEarth = target.StatusList.FirstOrDefault(o => o.StatusId == 1179);
             var riddleOfEarthDuration = riddleOfEarth.StackCount;
 
             var position = origin + Config.Position + Config.RiddleofEarthBarPosition - Config.RiddleofEarthBarSize / 2f;
@@ -245,13 +249,13 @@ namespace DelvUI.Interface.Jobs
 
         private void DrawChakraGauge(Vector2 origin)
         {
-            var gauge = PluginInterface.ClientState.JobGauges.Get<MNKGauge>();
+            var gauge = Plugin.JobGauges.Get<MNKGauge>();
 
             var position = origin + Config.Position + Config.ChakraBarPosition - Config.ChakraBarSize / 2f;
             var bar = BarBuilder.Create(position, Config.ChakraBarSize)
                                 .SetChunks(5)
                                 .SetChunkPadding(2)
-                                .AddInnerBar(gauge.NumChakra, 5, Config.ChakraBarFillColor.Map, EmptyColor.Map)
+                                .AddInnerBar(gauge.Chakra, 5, Config.ChakraBarFillColor.Map, EmptyColor.Map)
                                 .SetBackgroundColor(EmptyColor.Background)
                                 .Build();
 
@@ -261,9 +265,9 @@ namespace DelvUI.Interface.Jobs
 
         private void DrawTwinSnakesBar(Vector2 origin)
         {
-            var target = PluginInterface.ClientState.LocalPlayer;
-            var twinSnakes = target.StatusEffects.FirstOrDefault(o => o.EffectId == 101);
-            var twinSnakesDuration = twinSnakes.Duration;
+            var target = Plugin.ClientState.LocalPlayer;
+            var twinSnakes = target.StatusList.FirstOrDefault(o => o.StatusId == 101);
+            var twinSnakesDuration = twinSnakes.RemainingTime;
 
             var position = origin + Config.Position + Config.TwinSnakesBarPosition - Config.TwinSnakesBarSize / 2f;
 
@@ -283,9 +287,9 @@ namespace DelvUI.Interface.Jobs
 
         private void DrawLeadenFistBar(Vector2 origin)
         {
-            var target = PluginInterface.ClientState.LocalPlayer;
-            var leadenFist = target.StatusEffects.FirstOrDefault(o => o.EffectId == 1861);
-            var leadenFistDuration = leadenFist.Duration;
+            var target = Plugin.ClientState.LocalPlayer;
+            var leadenFist = target.StatusList.FirstOrDefault(o => o.StatusId == 1861);
+            var leadenFistDuration = leadenFist.RemainingTime;
 
             var position = origin + Config.Position + Config.LeadenFistBarPosition - Config.LeadenFistBarSize / 2f;
             var builder = BarBuilder.Create(position, Config.LeadenFistBarSize);
@@ -316,9 +320,15 @@ namespace DelvUI.Interface.Jobs
 
         private void DrawDemolishBar(Vector2 origin)
         {
-            var target = PluginInterface.ClientState.Targets.SoftTarget ?? PluginInterface.ClientState.Targets.CurrentTarget ?? PluginInterface.ClientState.LocalPlayer;
-            var demolish = target.StatusEffects.FirstOrDefault(o => o.EffectId == 246 || o.EffectId == 1309);
-            var demolishDuration = demolish.Duration;
+            var actor = Plugin.TargetManager.SoftTarget ?? Plugin.TargetManager.Target ?? Plugin.ClientState.LocalPlayer;
+
+            var demolishDuration = 0f;
+
+            if (actor is BattleChara target)
+            {
+                Status demolish = target.StatusList.FirstOrDefault(o => o.StatusId is 246 or 1309);
+                demolishDuration = demolish?.RemainingTime ?? 0f;
+            }
 
             var position = origin + Config.Position + Config.DemolishBarPosition - Config.DemolishBarSize / 2f;
             var builder = BarBuilder.Create(position, Config.DemolishBarSize);

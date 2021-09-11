@@ -1,6 +1,6 @@
-﻿using Dalamud.Game.ClientState.Actors.Types;
-using DelvUI.Config;
+﻿using DelvUI.Config;
 using System.Numerics;
+using Dalamud.Game.ClientState.Objects.Types;
 
 namespace DelvUI.Interface
 {
@@ -20,6 +20,6 @@ namespace DelvUI.Interface
 
     public interface IHudElementWithActor
     {
-        public Actor Actor { get; set; }
+        public GameObject Actor { get; set; }
     }
 }

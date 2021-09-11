@@ -1,6 +1,10 @@
-﻿using Dalamud.Game.ClientState.Actors.Types;
-using Dalamud.Game.ClientState.Structs;
-using Dalamud.Game.ClientState.Structs.JobGauge;
+﻿using System;
+using System.Diagnostics;
+using System.Globalization;
+using System.Linq;
+using System.Numerics;
+using Dalamud.Game.ClientState.JobGauge.Types;
+using Dalamud.Game.ClientState.Objects.Types;
 using DelvUI.Config;
 using DelvUI.Config.Attributes;
 using DelvUI.Helpers;
@@ -8,11 +12,6 @@ using DelvUI.Interface.Bars;
 using DelvUI.Interface.GeneralElements;
 using ImGuiNET;
 using Newtonsoft.Json;
-using System;
-using System.Globalization;
-using System.Linq;
-using System.Numerics;
-using Actor = Dalamud.Game.ClientState.Actors.Types.Actor;
 
 namespace DelvUI.Interface.Jobs
 {
@@ -42,12 +41,13 @@ namespace DelvUI.Interface.Jobs
 
         private void DrawDiaBar(Vector2 origin)
         {
-            Actor target = PluginInterface.ClientState.Targets.SoftTarget ?? PluginInterface.ClientState.Targets.CurrentTarget;
+            Debug.Assert(Plugin.ClientState.LocalPlayer != null, "Plugin.ClientState.LocalPlayer != null");
+            var actor = Plugin.TargetManager.SoftTarget ?? Plugin.TargetManager.Target;
             Vector2 cursorPos = origin + Config.Position + Config.DiaBarPosition - Config.DiaBarSize / 2f;
 
             ImDrawListPtr drawList = ImGui.GetWindowDrawList();
 
-            if (target is not Chara)
+            if (actor is not BattleChara target)
             {
                 drawList.AddRectFilled(cursorPos, cursorPos + Config.DiaBarSize, EmptyColor.Background);
                 drawList.AddRect(cursorPos, cursorPos + Config.DiaBarSize, 0xFF000000);
@@ -55,14 +55,14 @@ namespace DelvUI.Interface.Jobs
                 return;
             }
 
-            StatusEffect dia = target.StatusEffects.FirstOrDefault(
-                o => o.EffectId == 1871 && o.OwnerId == PluginInterface.ClientState.LocalPlayer.ActorId
-                  || o.EffectId == 144 && o.OwnerId == PluginInterface.ClientState.LocalPlayer.ActorId
-                  || o.EffectId == 143 && o.OwnerId == PluginInterface.ClientState.LocalPlayer.ActorId
+            var dia = target.StatusList.FirstOrDefault(
+                o => o.StatusId == 1871 && o.SourceID == Plugin.ClientState.LocalPlayer.ObjectId
+                  || o.StatusId == 144 && o.SourceID == Plugin.ClientState.LocalPlayer.ObjectId
+                  || o.StatusId == 143 && o.SourceID == Plugin.ClientState.LocalPlayer.ObjectId
             );
 
-            float diaCooldown = dia.EffectId == 1871 ? 30f : 18f;
-            float diaDuration = dia.Duration;
+            float diaCooldown = dia?.StatusId == 1871 ? 30f : 18f;
+            float diaDuration = dia?.RemainingTime ?? 0f;
 
             drawList.AddRectFilled(cursorPos, cursorPos + Config.DiaBarSize, EmptyColor.Background);
 
@@ -92,7 +92,7 @@ namespace DelvUI.Interface.Jobs
 
         private void DrawLilyBars(Vector2 origin)
         {
-            WHMGauge gauge = PluginInterface.ClientState.JobGauges.Get<WHMGauge>();
+            WHMGauge gauge = Plugin.JobGauges.Get<WHMGauge>();
 
             const float lilyCooldown = 30000f;
 
@@ -101,7 +101,7 @@ namespace DelvUI.Interface.Jobs
                 return num + (timer / lilyCooldown);
             }
 
-            float lilyScale = getScale(gauge.NumLilies, gauge.LilyTimer, lilyCooldown);
+            float lilyScale = getScale(gauge.Lily, gauge.LilyTimer, lilyCooldown);
 
             var posX = origin.X + Config.Position.X + Config.LilyBarPosition.X - Config.LilyBarSize.X / 2f;
             var posY = origin.Y + Config.Position.Y + Config.LilyBarPosition.Y - Config.LilyBarSize.Y / 2f;
@@ -115,9 +115,9 @@ namespace DelvUI.Interface.Jobs
                 string timer = (lilyCooldown / 1000f - gauge.LilyTimer / 1000f).ToString("0.0");
                 Vector2 size = ImGui.CalcTextSize((lilyCooldown / 1000).ToString("0.0"));
                 float lilyChunkSize = (Config.LilyBarSize.X / 3f) + Config.LilyBarPad;
-                float lilyChunkOffset = lilyChunkSize * ((int)gauge.NumLilies + 1);
+                float lilyChunkOffset = lilyChunkSize * (gauge.Lily + 1);
 
-                if (gauge.NumLilies < 3)
+                if (gauge.Lily < 3)
                 {
                     DrawHelper.DrawOutlinedText(timer, new Vector2(
                         posX + lilyChunkOffset - (lilyChunkSize / 2f) - (size.X / 2f),
@@ -133,7 +133,7 @@ namespace DelvUI.Interface.Jobs
 
             builder = BarBuilder.Create(posX, posY, Config.BloodLilyBarSize.Y, Config.BloodLilyBarSize.X).SetBackgroundColor(EmptyColor.Background);
 
-            builder.SetChunks(3).SetChunkPadding(Config.BloodLilyBarPad).AddInnerBar(gauge.NumBloodLily, 3, Config.BloodLilyColor.Map);
+            builder.SetChunks(3).SetChunkPadding(Config.BloodLilyBarPad).AddInnerBar(gauge.BloodLily, 3, Config.BloodLilyColor.Map);
 
             drawList = ImGui.GetWindowDrawList();
             builder.Build().Draw(drawList);

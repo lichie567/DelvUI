@@ -1,6 +1,6 @@
-﻿using Dalamud.Game.ClientState.Actors.Types;
-using FFXIVClientStructs.FFXIV.Client.Game;
+﻿using FFXIVClientStructs.FFXIV.Client.Game;
 using System.Collections.Generic;
+using Dalamud.Game.ClientState.Objects.SubKinds;
 
 namespace DelvUI.Helpers
 {

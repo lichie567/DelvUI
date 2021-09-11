@@ -1,13 +1,14 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup Label="Target">
-        <PlatformTarget>AnyCPU</PlatformTarget>
-        <TargetFramework>net48</TargetFramework>
+        <PlatformTarget>x64</PlatformTarget>
+        <TargetFramework>net5.0-windows</TargetFramework>
         <LangVersion>preview</LangVersion>
-        <Platforms>AnyCPU</Platforms>
+        <Platforms>x64</Platforms>
         <Configurations>Debug;Release</Configurations>
-        <AssemblyVersion>0.1.0.0</AssemblyVersion>
-        <FileVersion>0.1.0.0</FileVersion>
-        <InformationalVersion>1.0.0-beta1</InformationalVersion>
+        <AssemblyVersion>0.1.1.0</AssemblyVersion>
+        <FileVersion>0.1.1.0</FileVersion>
+        <InformationalVersion>0.1.1.0 (Beta1 Patch1)</InformationalVersion>
+        <Nullable>enable</Nullable>
     </PropertyGroup>
 
     <!-- Assembly Configuration -->
@@ -26,7 +27,6 @@
         <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
     </PropertyGroup>
 
-
     <!-- Release Configuration -->
     <PropertyGroup Condition="'$(Configuration)'=='Release'">
         <Deterministic>true</Deterministic>
@@ -34,7 +34,7 @@
 
     <!-- Dalamud Configuration -->
     <PropertyGroup>
-        <DalamudVersion>5.2.7.0</DalamudVersion>
+        <DalamudVersion>dev</DalamudVersion>
         <DalamudLocal>../dalamud/</DalamudLocal>
         <DalamudXIVLauncher>$(APPDATA)\XIVLauncher\addon\Hooks\$(DalamudVersion)</DalamudXIVLauncher>
     </PropertyGroup>
@@ -95,7 +95,7 @@
             <InputAssemblies Include="&quot;$(TargetPath)&quot;" />
             <InputAssemblies Include="&quot;$(TargetDir)FFXIVClientStructs.dll&quot;" Exclude="$(TargetPath)" />
             <InputAssemblies Include="&quot;$(TargetDir)FFXIVClientStructs.Common.dll&quot;" Exclude="$(TargetPath)" />
-            <InputAssemblies Include="&quot;$(TargetDir)Serilog.dll&quot;" Exclude="$(TargetPath)" />
+            <InputAssemblies Include="&quot;$(TargetDir)Scriban.dll&quot;" Exclude="$(TargetPath)" />
         </ItemGroup>
         <Exec Command="$(PkgILRepack)\tools\ILRepack.exe /lib:$(DalamudLocal) /lib:$(DalamudXIVLauncher) /out:&quot;$(TargetDir)..\$(Configuration).ILMerge\$(TargetFileName)&quot; @(InputAssemblies, ' ')" />
     </Target>

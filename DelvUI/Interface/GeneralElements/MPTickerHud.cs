@@ -1,8 +1,8 @@
-﻿using Dalamud.Game.ClientState.Actors.Types;
-using DelvUI.Helpers;
+﻿using DelvUI.Helpers;
 using ImGuiNET;
 using System;
 using System.Numerics;
+using Dalamud.Game.ClientState.Objects.Types;
 
 namespace DelvUI.Interface.GeneralElements
 {
@@ -11,7 +11,7 @@ namespace DelvUI.Interface.GeneralElements
         private MPTickerConfig Config => (MPTickerConfig)_config;
 
         private MPTickHelper _mpTickHelper;
-        public Actor Actor { get; set; } = null;
+        public GameObject Actor { get; set; } = null;
 
         public MPTickerHud(string ID, MPTickerConfig config) : base(ID, config)
         {
@@ -19,14 +19,14 @@ namespace DelvUI.Interface.GeneralElements
 
         public override void Draw(Vector2 origin)
         {
-            if (!Config.Enabled || Actor == null || Actor is not Chara)
+            if (!Config.Enabled || Actor == null || Actor is not Character)
             {
                 return;
             }
 
             if (Config.HideOnFullMP)
             {
-                var chara = (Chara)Actor;
+                var chara = (Character)Actor;
                 if (chara.CurrentMp >= chara.MaxMp)
                 {
                     return;

@@ -1,7 +1,4 @@
-﻿using Dalamud.Game.ClientState.Actors.Types;
-using Dalamud.Game.ClientState.Structs;
-using Dalamud.Game.ClientState.Structs.JobGauge;
-using DelvUI.Config;
+﻿using DelvUI.Config;
 using DelvUI.Config.Attributes;
 using DelvUI.Helpers;
 using DelvUI.Interface.Bars;
@@ -10,11 +7,15 @@ using ImGuiNET;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Numerics;
 using System.Reflection;
 using System.Runtime.InteropServices;
-using Actor = Dalamud.Game.ClientState.Actors.Types.Actor;
+using Dalamud.Game.ClientState.JobGauge.Enums;
+using Dalamud.Game.ClientState.JobGauge.Types;
+using Dalamud.Game.ClientState.Objects.Types;
+using Dalamud.Game.ClientState.Statuses;
 
 namespace DelvUI.Interface.Jobs
 {
@@ -93,7 +94,7 @@ namespace DelvUI.Interface.Jobs
         {
             List<Dictionary<string, uint>> chunkColors = new();
 
-            ASTGauge gauge = PluginInterface.ClientState.JobGauges.Get<ASTGauge>();
+            ASTGauge gauge = Plugin.JobGauges.Get<ASTGauge>();
 
             FieldInfo field = typeof(ASTGauge).GetField("seals", BindingFlags.NonPublic | BindingFlags.GetField | BindingFlags.Instance);
 
@@ -194,7 +195,7 @@ namespace DelvUI.Interface.Jobs
 
         private void DrawDraw(Vector2 origin)
         {
-            ASTGauge gauge = PluginInterface.ClientState.JobGauges.Get<ASTGauge>();
+            ASTGauge gauge = Plugin.JobGauges.Get<ASTGauge>();
 
             float xPos = origin.X + Config.Position.X + Config.DrawBarPosition.X - Config.DrawBarSize.X / 2f;
             float yPos = origin.Y + Config.Position.Y + Config.DrawBarPosition.Y - Config.DrawBarSize.Y / 2f;
@@ -203,7 +204,7 @@ namespace DelvUI.Interface.Jobs
             Dictionary<string, uint> cardColor = EmptyColor;
             BarBuilder builder = BarBuilder.Create(xPos, yPos, Config.DrawBarSize.Y, Config.DrawBarSize.X);
 
-            switch (gauge.DrawnCard())
+            switch (gauge.DrawnCard)
             {
                 case CardType.BALANCE:
                     cardColor = Config.SealSunColor.Map;
@@ -327,13 +328,13 @@ namespace DelvUI.Interface.Jobs
 
         private void DrawDot(Vector2 origin)
         {
-            Actor target = PluginInterface.ClientState.Targets.SoftTarget ?? PluginInterface.ClientState.Targets.CurrentTarget;
+            GameObject actor = Plugin.TargetManager.SoftTarget ?? Plugin.TargetManager.Target;
             float xPos = origin.X + Config.Position.X + Config.DotBarPosition.X - Config.DotBarSize.X / 2f;
             float yPos = origin.Y + Config.Position.Y + Config.DotBarPosition.Y - Config.DotBarSize.Y / 2f;
             ImDrawListPtr drawList = ImGui.GetWindowDrawList();
             BarBuilder builder = BarBuilder.Create(xPos, yPos, Config.DotBarSize.Y, Config.DotBarSize.X);
 
-            if (target is not Chara)
+            if (actor is not BattleChara target)
             {
                 Bar barNoTarget = builder.AddInnerBar(0, 30f, Config.DotColor.Map)
                                          .SetBackgroundColor(EmptyColor["background"])
@@ -354,14 +355,15 @@ namespace DelvUI.Interface.Jobs
                 return;
             }
 
-            StatusEffect dot = target.StatusEffects.FirstOrDefault(
-                o => o.EffectId == 1881 && o.OwnerId == PluginInterface.ClientState.LocalPlayer.ActorId
-                  || o.EffectId == 843 && o.OwnerId == PluginInterface.ClientState.LocalPlayer.ActorId
-                  || o.EffectId == 838 && o.OwnerId == PluginInterface.ClientState.LocalPlayer.ActorId
+            Debug.Assert(Plugin.ClientState.LocalPlayer != null, "Plugin.ClientState.LocalPlayer != null");
+            Status dot = target.StatusList.FirstOrDefault(
+                o => o.StatusId == 1881 && o.SourceID == Plugin.ClientState.LocalPlayer.ObjectId
+                  || o.StatusId == 843 && o.SourceID == Plugin.ClientState.LocalPlayer.ObjectId
+                  || o.StatusId == 838 && o.SourceID == Plugin.ClientState.LocalPlayer.ObjectId
             );
 
-            float dotCooldown = dot.EffectId == 838 ? 18f : 30f;
-            float dotDuration = Config.EnableDecimalDotBar ? dot.Duration : Math.Abs(dot.Duration);
+            float dotCooldown = dot?.StatusId == 838 ? 18f : 30f;
+            float dotDuration = Config.EnableDecimalDotBar ? dot?.RemainingTime ?? 0f : Math.Abs(dot?.RemainingTime ?? 0f);
 
             Bar bar = builder.AddInnerBar(dotDuration, dotCooldown, Config.DotColor.Map)
                              .SetBackgroundColor(EmptyColor["background"])
@@ -371,8 +373,8 @@ namespace DelvUI.Interface.Jobs
                                  BarTextType.Custom,
                                  Config.ShowDotTextBar
                                      ? !Config.EnableDecimalDotBar
-                                         ? dot.Duration.ToString("N0")
-                                         : Math.Abs(dot.Duration).ToString("N1")
+                                         ? dot?.RemainingTime.ToString("N0")
+                                         : Math.Abs(dot?.RemainingTime ?? 0f).ToString("N1")
                                      : ""
                              )
                              .Build();
@@ -382,7 +384,8 @@ namespace DelvUI.Interface.Jobs
 
         private void DrawLightspeed(Vector2 origin)
         {
-            List<StatusEffect> lightspeedBuff = PluginInterface.ClientState.LocalPlayer.StatusEffects.Where(o => o.EffectId == 841).ToList();
+            Debug.Assert(Plugin.ClientState.LocalPlayer != null, "Plugin.ClientState.LocalPlayer != null");
+            List<Status> lightspeedBuff = Plugin.ClientState.LocalPlayer.StatusList.Where(o => o.StatusId == 841).ToList();
             float lightspeedDuration = 0f;
             const float lightspeedMaxDuration = 15f;
 
@@ -391,7 +394,7 @@ namespace DelvUI.Interface.Jobs
 
             if (lightspeedBuff.Any())
             {
-                lightspeedDuration = Math.Abs(lightspeedBuff.First().Duration);
+                lightspeedDuration = Math.Abs(lightspeedBuff.First().RemainingTime);
             }
 
             BarBuilder builder = BarBuilder.Create(xPos, yPos, Config.LightspeedBarSize.Y, Config.LightspeedBarSize.X);
@@ -417,9 +420,9 @@ namespace DelvUI.Interface.Jobs
 
         private void DrawStar(Vector2 origin)
         {
-            List<StatusEffect> starPreCookingBuff = PluginInterface.ClientState.LocalPlayer.StatusEffects.Where(o => o.EffectId == 1224).ToList();
-
-            List<StatusEffect> starPostCookingBuff = PluginInterface.ClientState.LocalPlayer.StatusEffects.Where(o => o.EffectId == 1248).ToList();
+            Debug.Assert(Plugin.ClientState.LocalPlayer != null, "Plugin.ClientState.LocalPlayer != null");
+            List<Status> starPreCookingBuff = Plugin.ClientState.LocalPlayer.StatusList.Where(o => o.StatusId == 1224).ToList();
+            List<Status> starPostCookingBuff = Plugin.ClientState.LocalPlayer.StatusList.Where(o => o.StatusId == 1248).ToList();
 
             float starDuration = 0f;
             const float starMaxDuration = 10f;
@@ -430,13 +433,13 @@ namespace DelvUI.Interface.Jobs
 
             if (starPreCookingBuff.Any())
             {
-                starDuration = starMaxDuration - Math.Abs(starPreCookingBuff.First().Duration);
+                starDuration = starMaxDuration - Math.Abs(starPreCookingBuff.First().RemainingTime);
                 starColorSelector = Config.StarEarthlyColor.Map;
             }
 
             if (starPostCookingBuff.Any())
             {
-                starDuration = Math.Abs(starPostCookingBuff.First().Duration);
+                starDuration = Math.Abs(starPostCookingBuff.First().RemainingTime);
                 starColorSelector = Config.StarGiantColor.Map;
             }
 

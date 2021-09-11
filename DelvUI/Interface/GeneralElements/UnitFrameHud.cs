@@ -1,12 +1,12 @@
-﻿using Dalamud.Game.ClientState.Actors.Types;
-using Dalamud.Game.Internal.Gui.Addon;
-using DelvUI.Helpers;
+﻿using DelvUI.Helpers;
 using FFXIVClientStructs.FFXIV.Client.System.Framework;
 using ImGuiNET;
 using System;
 using System.Linq;
 using System.Numerics;
 using System.Runtime.InteropServices;
+using Dalamud.Game.ClientState.Objects.Types;
+using FFXIVClientStructs.FFXIV.Component.GUI;
 
 namespace DelvUI.Interface.GeneralElements
 {
@@ -19,7 +19,7 @@ namespace DelvUI.Interface.GeneralElements
         private ImGuiWindowFlags _childFlags = 0;
         private readonly OpenContextMenuFromTarget _openContextMenuFromTarget;
 
-        public Actor Actor { get; set; } = null;
+        public GameObject Actor { get; set; } = null;
 
         public UnitFrameHud(string id, UnitFrameConfig config) : base(id, config)
         {
@@ -29,7 +29,7 @@ namespace DelvUI.Interface.GeneralElements
 
             // interaction stuff
             _openContextMenuFromTarget =
-                Marshal.GetDelegateForFunctionPointer<OpenContextMenuFromTarget>(Plugin.GetPluginInterface().TargetModuleScanner.ScanText("48 85 D2 74 7F 48 89 5C 24"));
+                Marshal.GetDelegateForFunctionPointer<OpenContextMenuFromTarget>(Plugin.SigScanner.ScanText("48 85 D2 74 7F 48 89 5C 24"));
 
             _childFlags |= ImGuiWindowFlags.NoTitleBar;
             _childFlags |= ImGuiWindowFlags.NoScrollbar;
@@ -56,7 +56,7 @@ namespace DelvUI.Interface.GeneralElements
             var endPos = startPos + Config.Size;
 
             var drawList = ImGui.GetWindowDrawList();
-            var addon = Plugin.GetPluginInterface().Framework.Gui.GetAddonByName("ContextMenu", 1);
+            var addon = (AtkUnitBase*)Plugin.GameGui.GetAddonByName("ContextMenu", 1);
 
             DrawHelper.ClipAround(addon, ID, drawList, (drawListPtr, windowName) =>
             {
@@ -70,13 +70,13 @@ namespace DelvUI.Interface.GeneralElements
                 if (ImGui.BeginChild(windowName, Config.Size, default, _childFlags))
                 {
                     // health bar
-                    if (Actor is not Chara)
+                    if (Actor is not Character)
                     {
                         DrawFriendlyNPC(drawListPtr, startPos, endPos);
                     }
                     else
                     {
-                        DrawChara(drawListPtr, origin, (Chara)Actor);
+                        DrawChara(drawListPtr, origin, (Character)Actor);
                     }
 
                     // Check if mouse is hovering over the box properly
@@ -84,7 +84,7 @@ namespace DelvUI.Interface.GeneralElements
                     {
                         if (ImGui.GetIO().MouseClicked[0])
                         {
-                            Plugin.GetPluginInterface().ClientState.Targets.SetCurrentTarget(Actor);
+                            Plugin.TargetManager.SetTarget(Actor);
                         }
                         else if (ImGui.GetIO().MouseClicked[1])
                         {
@@ -103,15 +103,15 @@ namespace DelvUI.Interface.GeneralElements
             });
         }
 
-        private void UpdateChildFlags(Addon addon)
+        private unsafe void UpdateChildFlags(AtkUnitBase* addon)
         {
-            if (addon is not { Visible: true })
+            if (!addon->IsVisible)
             {
                 _childFlags &= ~ImGuiWindowFlags.NoInputs;
             }
             else
             {
-                if (ImGui.IsMouseHoveringRect(new Vector2(addon.X, addon.Y), new Vector2(addon.X + addon.Width, addon.Y + addon.Height)))
+                if (ImGui.IsMouseHoveringRect(new Vector2(addon->X, addon->Y), new Vector2(addon->X + addon->WindowNode->AtkResNode.Width, addon->Y + addon->WindowNode->AtkResNode.Height)))
                 {
                     _childFlags |= ImGuiWindowFlags.NoInputs;
                 }
@@ -122,7 +122,7 @@ namespace DelvUI.Interface.GeneralElements
             }
         }
 
-        private void DrawChara(ImDrawListPtr drawList, Vector2 origin, Chara chara)
+        private void DrawChara(ImDrawListPtr drawList, Vector2 origin, Character chara)
         {
             if (Config.TankStanceIndicatorConfig != null && Config.TankStanceIndicatorConfig.Enabled && JobsHelper.IsJobTank(chara.ClassJob.Id))
             {
@@ -189,15 +189,13 @@ namespace DelvUI.Interface.GeneralElements
 
         private void DrawTankStanceIndicator(ImDrawListPtr drawList, Vector2 origin)
         {
-            var tankStanceBuff = Actor.StatusEffects.Where(
-                o => o.EffectId == 79 ||    // IRON WILL
-                     o.EffectId == 91 ||    // DEFIANCE
-                     o.EffectId == 392 ||   // ROYAL GUARD
-                     o.EffectId == 393 ||   // IRON WILL
-                     o.EffectId == 743 ||   // GRIT
-                     o.EffectId == 1396 ||  // DEFIANCE
-                     o.EffectId == 1397 ||  // GRIT
-                     o.EffectId == 1833     // ROYAL GUARD
+            if (Actor is not BattleChara battleChara)
+            {
+                return;
+            }
+            
+            var tankStanceBuff = battleChara.StatusList.Where(
+                o => o.StatusId is 79 or 91 or 392 or 393 or 743 or 1396 or 1397 or 1833
             );
 
             var thickness = Config.TankStanceIndicatorConfig.Thickness + 1;
@@ -207,15 +205,15 @@ namespace DelvUI.Interface.GeneralElements
                 origin.Y + Config.Position.Y - Config.Size.Y / 2f + thickness
             );
 
-            var color = tankStanceBuff.Count() <= 0 ? Config.TankStanceIndicatorConfig.UnactiveColor : Config.TankStanceIndicatorConfig.ActiveColor;
+            var color = !tankStanceBuff.Any() ? Config.TankStanceIndicatorConfig.UnactiveColor : Config.TankStanceIndicatorConfig.ActiveColor;
 
             drawList.AddRectFilled(cursorPos, cursorPos + barSize, color.Base);
             drawList.AddRect(cursorPos, cursorPos + barSize, 0xFF000000);
         }
 
-        private uint BackgroundColor(Chara chara)
+        private uint BackgroundColor(Character chara)
         {
-            if (Config.ShowTankInvulnerability && Utils.HasTankInvulnerability(chara))
+            if (Config.ShowTankInvulnerability && chara is BattleChara battleChara && Utils.HasTankInvulnerability(battleChara))
             {
                 uint color;
                 if (Config.UseCustomInvulnerabilityColor)

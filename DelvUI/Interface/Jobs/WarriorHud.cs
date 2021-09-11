@@ -1,5 +1,4 @@
 ﻿using Dalamud.Game.ClientState.Structs;
-using Dalamud.Game.ClientState.Structs.JobGauge;
 using DelvUI.Config;
 using DelvUI.Config.Attributes;
 using DelvUI.Helpers;
@@ -9,8 +8,10 @@ using ImGuiNET;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Numerics;
+using Dalamud.Game.ClientState.JobGauge.Types;
 
 namespace DelvUI.Interface.Jobs
 {
@@ -39,8 +40,9 @@ namespace DelvUI.Interface.Jobs
 
         private void DrawStormsEyeBar(Vector2 origin)
         {
-            IEnumerable<StatusEffect> innerReleaseBuff = PluginInterface.ClientState.LocalPlayer.StatusEffects.Where(o => o.EffectId == 1177);
-            IEnumerable<StatusEffect> stormsEyeBuff = PluginInterface.ClientState.LocalPlayer.StatusEffects.Where(o => o.EffectId == 90);
+            Debug.Assert(Plugin.ClientState.LocalPlayer != null, "Plugin.ClientState.LocalPlayer != null");
+            var innerReleaseBuff = Plugin.ClientState.LocalPlayer.StatusList.Where(o => o.StatusId == 1177);
+            var stormsEyeBuff = Plugin.ClientState.LocalPlayer.StatusList.Where(o => o.StatusId == 90);
 
             Vector2 position = origin + Config.Position + Config.StormsEyePosition - Config.StormsEyeSize / 2f;
 
@@ -52,12 +54,12 @@ namespace DelvUI.Interface.Jobs
 
             if (innerReleaseBuff.Any())
             {
-                duration = Math.Abs(innerReleaseBuff.First().Duration);
+                duration = Math.Abs(innerReleaseBuff.First().RemainingTime);
                 color = Config.InnerReleaseColor.Map;
             }
             else if (stormsEyeBuff.Any())
             {
-                duration = Math.Abs(stormsEyeBuff.First().Duration);
+                duration = Math.Abs(stormsEyeBuff.First().RemainingTime);
                 maximum = 60f;
                 color = Config.StormsEyeColor.Map;
             }
@@ -75,14 +77,14 @@ namespace DelvUI.Interface.Jobs
 
         private void DrawBeastGauge(Vector2 origin)
         {
-            WARGauge gauge = PluginInterface.ClientState.JobGauges.Get<WARGauge>();
-            IEnumerable<StatusEffect> nascentChaosBuff = PluginInterface.ClientState.LocalPlayer.StatusEffects.Where(o => o.EffectId == 1897);
+            WARGauge gauge = Plugin.JobGauges.Get<WARGauge>();
+            var nascentChaosBuff = Plugin.ClientState.LocalPlayer.StatusList.Where(o => o.StatusId == 1897);
 
             Vector2 position = origin + Config.Position + Config.BeastGaugePosition - Config.BeastGaugeSize / 2f;
 
             BarBuilder builder = BarBuilder.Create(position, Config.BeastGaugeSize)
                                            .SetChunks(2)
-                                           .AddInnerBar(gauge.BeastGaugeAmount, 100, Config.BeastGaugeFillColor.Map)
+                                           .AddInnerBar(gauge.BeastGauge, 100, Config.BeastGaugeFillColor.Map)
                                            .SetBackgroundColor(EmptyColor["background"])
                                            .SetChunkPadding(Config.BeastGaugePadding);
 

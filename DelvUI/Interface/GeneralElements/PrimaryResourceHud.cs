@@ -1,8 +1,8 @@
-﻿using Dalamud.Game.ClientState.Actors.Types;
-using DelvUI.Helpers;
+﻿using DelvUI.Helpers;
 using ImGuiNET;
 using System;
 using System.Numerics;
+using Dalamud.Game.ClientState.Objects.Types;
 
 namespace DelvUI.Interface.GeneralElements
 {
@@ -10,7 +10,7 @@ namespace DelvUI.Interface.GeneralElements
     {
         private PrimaryResourceConfig Config => (PrimaryResourceConfig)_config;
         private LabelHud _valueLabel;
-        public Actor Actor { get; set; } = null;
+        public GameObject Actor { get; set; } = null;
         public PrimaryResourceTypes ResourceType = PrimaryResourceTypes.MP;
 
         public PrimaryResourceHud(string ID, PrimaryResourceConfig config) : base(ID, config)
@@ -20,12 +20,12 @@ namespace DelvUI.Interface.GeneralElements
 
         public override void Draw(Vector2 origin)
         {
-            if (!Config.Enabled || ResourceType == PrimaryResourceTypes.None || Actor == null || Actor is not Chara)
+            if (!Config.Enabled || ResourceType == PrimaryResourceTypes.None || Actor == null || Actor is not Character)
             {
                 return;
             }
 
-            var chara = (Chara)Actor;
+            var chara = (Character)Actor;
             int current = 0;
             int max = 0;
 
@@ -65,30 +65,30 @@ namespace DelvUI.Interface.GeneralElements
             }
         }
 
-        private void GetResources(ref int current, ref int max, Chara actor)
+        private void GetResources(ref int current, ref int max, Character actor)
         {
             switch (ResourceType)
             {
                 case PrimaryResourceTypes.MP:
                     {
-                        current = actor.CurrentMp;
-                        max = actor.MaxMp;
+                        current = (int)actor.CurrentMp;
+                        max = (int)actor.MaxMp;
                     }
 
                     break;
 
                 case PrimaryResourceTypes.CP:
                     {
-                        current = actor.CurrentCp;
-                        max = actor.MaxCp;
+                        current = (int)actor.CurrentCp;
+                        max = (int)actor.MaxCp;
                     }
 
                     break;
 
                 case PrimaryResourceTypes.GP:
                     {
-                        current = actor.CurrentGp;
-                        max = actor.MaxGp;
+                        current = (int)actor.CurrentGp;
+                        max = (int)actor.MaxGp;
                     }
 
                     break;

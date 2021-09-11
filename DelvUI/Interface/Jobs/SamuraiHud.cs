@@ -1,5 +1,10 @@
-﻿using Dalamud.Game.ClientState.Actors.Types;
-using Dalamud.Game.ClientState.Structs.JobGauge;
+﻿using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.Linq;
+using System.Numerics;
+using Dalamud.Game.ClientState.JobGauge.Types;
+using Dalamud.Game.ClientState.Objects.Types;
 using DelvUI.Config;
 using DelvUI.Config.Attributes;
 using DelvUI.Helpers;
@@ -7,10 +12,6 @@ using DelvUI.Interface.Bars;
 using DelvUI.Interface.GeneralElements;
 using ImGuiNET;
 using Newtonsoft.Json;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Numerics;
 
 namespace DelvUI.Interface.Jobs
 {
@@ -54,7 +55,7 @@ namespace DelvUI.Interface.Jobs
 
         private void DrawKenkiBar(Vector2 origin)
         {
-            var gauge = PluginInterface.ClientState.JobGauges.Get<SAMGauge>();
+            var gauge = Plugin.JobGauges.Get<SAMGauge>();
             var pos = new Vector2(
                 origin.X + Config.Position.X + Config.KenkiBarPosition.X - Config.KenkiBarSize.X / 2f,
                 origin.Y + Config.Position.Y + Config.KenkiBarPosition.Y - Config.KenkiBarSize.Y / 2f
@@ -75,15 +76,16 @@ namespace DelvUI.Interface.Jobs
 
         private void DrawHiganbanaBar(Vector2 origin)
         {
-            var target = PluginInterface.ClientState.Targets.SoftTarget ?? PluginInterface.ClientState.Targets.CurrentTarget;
-            if (target is not Chara)
+            Debug.Assert(Plugin.ClientState.LocalPlayer != null, "Plugin.ClientState.LocalPlayer != null");
+            var actor = Plugin.TargetManager.SoftTarget ?? Plugin.TargetManager.Target;
+            if (actor is not BattleChara target)
             {
                 return;
             }
 
-            var actorId = PluginInterface.ClientState.LocalPlayer.ActorId;
-            var higanbana = target.StatusEffects.FirstOrDefault(o => o.EffectId == 1228 && o.OwnerId == actorId || o.EffectId == 1319 && o.OwnerId == actorId);
-            var higanbanaDuration = higanbana.Duration;
+            var actorId = Plugin.ClientState.LocalPlayer.ObjectId;
+            var higanbana = target.StatusList.FirstOrDefault(o => o.StatusId == 1228 && o.SourceID == actorId || o.StatusId == 1319 && o.SourceID == actorId);
+            var higanbanaDuration = higanbana?.RemainingTime ?? 0f;
             if (higanbanaDuration == 0)
             {
                 return;
@@ -109,12 +111,12 @@ namespace DelvUI.Interface.Jobs
 
         private void DrawActiveBuffs(Vector2 origin)
         {
-            var target = PluginInterface.ClientState.LocalPlayer;
+            Debug.Assert(Plugin.ClientState.LocalPlayer != null, "Plugin.ClientState.LocalPlayer != null");
             var buffsSize = new Vector2(Config.BuffsBarSize.X / 2f - Config.BuffsPadding / 2f, Config.BuffsBarSize.Y);
 
             // shifu
-            var shifu = target.StatusEffects.FirstOrDefault(o => o.EffectId == 1299);
-            var shifuDuration = shifu.Duration;
+            var shifu = Plugin.ClientState.LocalPlayer.StatusList.FirstOrDefault(o => o.StatusId == 1299);
+            var shifuDuration = shifu?.RemainingTime ?? 0f;
             var shifuPos = new Vector2(
                 origin.X + Config.Position.X + Config.BuffsBarPosition.X - Config.BuffsBarSize.X / 2f,
                 origin.Y + Config.Position.Y + Config.BuffsBarPosition.Y - Config.BuffsBarSize.Y / 2f
@@ -125,8 +127,8 @@ namespace DelvUI.Interface.Jobs
                 .SetFlipDrainDirection(true);
 
             // jinpu
-            var jinpu = target.StatusEffects.FirstOrDefault(o => o.EffectId == 1298);
-            var jinpuDuration = jinpu.Duration;
+            var jinpu = Plugin.ClientState.LocalPlayer.StatusList.FirstOrDefault(o => o.StatusId == 1298);
+            var jinpuDuration = jinpu?.RemainingTime ?? 0f;
             var jinpuPos = new Vector2(
                 origin.X + Config.Position.X + Config.BuffsBarPosition.X + Config.BuffsBarSize.X / 2f - buffsSize.X,
                 origin.Y + Config.Position.Y + Config.BuffsBarPosition.Y - Config.BuffsBarSize.Y / 2f
@@ -149,7 +151,7 @@ namespace DelvUI.Interface.Jobs
 
         private void DrawSenResourceBar(Vector2 origin)
         {
-            var gauge = PluginInterface.ClientState.JobGauges.Get<SAMGauge>();
+            var gauge = Plugin.JobGauges.Get<SAMGauge>();
             var senBarWidth = (Config.SenBarSize.X - Config.SenBarPadding * 2) / 3f;
             var senBarSize = new Vector2(senBarWidth, Config.SenBarSize.Y);
 
@@ -160,8 +162,8 @@ namespace DelvUI.Interface.Jobs
             var drawList = ImGui.GetWindowDrawList();
 
             // setsu, getsu, ka
-            var hasSen = new int[] { gauge.HasSetsu() ? 1 : 0, gauge.HasGetsu() ? 1 : 0, gauge.HasKa() ? 1 : 0 };
-            var colors = new PluginConfigColor[] { Config.SetsuColor, Config.GetsuColor, Config.KaColor };
+            int[] hasSen = { gauge.HasSetsu ? 1 : 0, gauge.HasGetsu ? 1 : 0, gauge.HasKa ? 1 : 0 };
+            PluginConfigColor[] colors = { Config.SetsuColor, Config.GetsuColor, Config.KaColor };
 
             for (int i = 0; i < 3; i++)
             {
@@ -175,7 +177,7 @@ namespace DelvUI.Interface.Jobs
 
         private void DrawMeditationResourceBar(Vector2 origin)
         {
-            var gauge = PluginInterface.ClientState.JobGauges.Get<SAMGauge>();
+            var gauge = Plugin.JobGauges.Get<SAMGauge>();
 
             var pos = new Vector2(
                 origin.X + Config.Position.X + Config.MeditationBarPosition.X - Config.MeditationBarSize.X / 2f,

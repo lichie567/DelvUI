@@ -12,6 +12,7 @@ using System.IO;
 using System.Linq;
 using System.Numerics;
 using System.Reflection;
+using Dalamud.Logging;
 
 namespace DelvUI.Config.Tree
 {
